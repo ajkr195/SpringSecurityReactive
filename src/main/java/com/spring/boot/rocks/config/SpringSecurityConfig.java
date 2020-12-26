@@ -2,8 +2,13 @@ package com.spring.boot.rocks.config;
 
 import java.net.URI;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authorization.AuthorityReactiveAuthorizationManager;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
@@ -31,9 +36,15 @@ public class SpringSecurityConfig {
 		return http.formLogin()
 				// TODO * No support yet for form-based login in Spring Security for WebFlux:
 				// TODO https://github.com/spring-projects/spring-security/issues/5767
-				// .loginPage("/login.html")
-				.and().logout().logoutUrl("/logout").logoutSuccessHandler(logoutSuccessHandler).and()
-				.authorizeExchange().pathMatchers("/admin/**").hasRole("ADMIN").pathMatchers("/user/**").hasRole("USER")
+				.loginPage("/login.html")
+				.and()
+				.logout()
+				.logoutUrl("/logout")
+				.logoutSuccessHandler(logoutSuccessHandler)
+				.and()
+				.authorizeExchange()
+				.pathMatchers("/admin/**").hasRole("ADMIN")
+				.pathMatchers("/user/**").hasRole("USER")
 				// TODO * This duplicity would not be needed if matchers had a "hasAnyRole"
 				// method,
 				// TODO which it has in the Spring MVC version...
@@ -63,8 +74,16 @@ public class SpringSecurityConfig {
 		return new MapReactiveUserDetailsService(
 				User.withDefaultPasswordEncoder().username("privuser").password("password").roles("ADMIN").build(),
 				User.withDefaultPasswordEncoder().username("justuser").password("password").roles("USER").build(),
-				User.withDefaultPasswordEncoder().username("admin").password("password").roles("USER", "ADMIN").build());
+				User.withDefaultPasswordEncoder().username("admin").password("password").roles("USER", "ADMIN")
+						.build());
 
+	}
+
+	@Bean
+	public Mono<ResponseEntity<String>> handle(AccessDeniedException ex) {
+		Logger logger = LoggerFactory.getLogger(this.getClass());
+		logger.error(ex.getMessage());
+		return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
 	}
 
 }
